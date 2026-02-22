@@ -10,14 +10,34 @@
 - 数据导入导出：支持 CSV 导入与导出
 - 主题与隐私：深浅色主题切换；一键隐藏 Total Amount、Position、Shares
 
-## 技术栈
-- 前端：Vue 3 + Vite + ECharts
+## TechStacks
+- 前端：Vue 3 + Vite
+   - ECharts for charting
 - 后端：Python（API 服务）
+   - FastApi for api framework
 
-## 快速启动
-1. 启动后端
-   - 进入 backend 目录并安装依赖
-   - 运行 main.py 启动 API
-2. 启动前端
-   - 进入 frontend-vue 目录安装依赖
-   - 运行 Vite 开发服务器
+## Start from script
+### Windows Only
+方式1：启动后端与前端：运行根目录下的 start.bat
+
+```bat
+start.bat
+```
+
+
+## Manually
+### Windows & Linux
+1. Backend
+```bat
+cd backend
+pip install -r requirements.txt
+
+python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000 --log-level info --log-config logging.json
+```
+2. Frontend
+```bat
+cd frontend-vue   
+npm install
+
+npm run dev
+```
