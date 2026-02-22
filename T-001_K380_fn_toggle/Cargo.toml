@@ -1,0 +1,7 @@
+[package]
+name = "k380_fn_toggle"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+hidapi = "2.6.3" # 当前较稳定的版本
