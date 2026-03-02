@@ -1,6 +1,7 @@
 import argparse
 import asyncio
 import datetime
+import datetime as dt
 import os
 from decimal import Decimal, InvalidOperation
 from typing import List, Tuple, Optional
@@ -75,9 +76,9 @@ def upsert_rows(conn, rows: List[Tuple[str, datetime.date, Optional[Decimal], Op
     if not rows:
         return 0
     sql = """
-    INSERT INTO public.fund_nav_daily (fund_id, nav_date, net_asset_value, accumulated_asset_value)
+    INSERT INTO public.fund_nav (fund_id, date, net_asset_value, accumulated_asset_value)
     VALUES %s
-    ON CONFLICT (fund_id, nav_date) DO UPDATE SET
+    ON CONFLICT (fund_id, date) DO UPDATE SET
       net_asset_value = EXCLUDED.net_asset_value,
       accumulated_asset_value = EXCLUDED.accumulated_asset_value
     """
@@ -85,6 +86,22 @@ def upsert_rows(conn, rows: List[Tuple[str, datetime.date, Optional[Decimal], Op
         execute_values(cur, sql, rows, page_size=1000)
     conn.commit()
     return len(rows)
+
+def upsert_rows_with_new_conn(cfg: dict, rows: List[Tuple[str, datetime.date, Optional[Decimal], Optional[Decimal]]]) -> int:
+    if not rows:
+        return 0
+    conn = get_conn(cfg)
+    try:
+        return upsert_rows(conn, rows)
+    finally:
+        conn.close()
+
+async def upsert_rows_async(cfg: dict, rows: List[Tuple[str, datetime.date, Optional[Decimal], Optional[Decimal]]], semaphore: asyncio.Semaphore) -> int:
+    async with semaphore:
+        return await asyncio.to_thread(upsert_rows_with_new_conn, cfg, rows)
+
+def chunk_rows(rows: List[Tuple[str, datetime.date, Optional[Decimal], Optional[Decimal]]], size: int) -> List[List[Tuple[str, datetime.date, Optional[Decimal], Optional[Decimal]]]]:
+    return [rows[i:i + size] for i in range(0, len(rows), size)]
 
 async def fetch_one(fund_id: str, start_date: datetime.date, end_date: datetime.date, semaphore: asyncio.Semaphore) -> Tuple[str, List[dict], Optional[str]]:
     async with semaphore:
@@ -98,10 +115,12 @@ async def fetch_one(fund_id: str, start_date: datetime.date, end_date: datetime.
 def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument("--config", default=None, help="YAML 配置文件路径，默认 eastmoney/config.yaml")
-    p.add_argument("--start-date", default="2026-02-09")
-    p.add_argument("--end-date", default="2026-02-13")
+    p.add_argument("--start-date", default=f"{dt.date.today() - dt.timedelta(days=7)}")
+    p.add_argument("--end-date", default=f"{dt.date.today()}")
     p.add_argument("--batch-size", type=int, default=200)
     p.add_argument("--concurrency", type=int, default=20)
+    p.add_argument("--write-concurrency", type=int, default=5)
+    p.add_argument("--write-chunk-size", type=int, default=2000)
     return p.parse_args()
 
 async def async_main():
@@ -126,7 +145,10 @@ async def async_main():
                     errors += 1
                     continue
                 rows.extend(build_rows(fund_id, data))
-            total_inserted += upsert_rows(conn, rows)
+            write_semaphore = asyncio.Semaphore(args.write_concurrency)
+            row_chunks = chunk_rows(rows, args.write_chunk_size)
+            inserted_parts = await asyncio.gather(*[upsert_rows_async(cfg, chunk, write_semaphore) for chunk in row_chunks])
+            total_inserted += sum(inserted_parts)
             print(f"batch {i // args.batch_size + 1}: fetched {len(batch)}, rows {len(rows)}, total_inserted {total_inserted}, errors {errors}")
         print(f"done: total_inserted {total_inserted}, errors {errors}")
     finally:
