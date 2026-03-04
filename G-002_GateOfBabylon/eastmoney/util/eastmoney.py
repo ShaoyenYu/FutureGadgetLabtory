@@ -16,10 +16,10 @@ HEADERS = {
 
 NAV_BASE_URL = "https://api.fund.eastmoney.com/f10/lsjz"
 NAV_HEADERS = {
-    "Referer": "https://fund.eastmoney.com/",
+    "Referer": "https://fundf10.eastmoney.com/",
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Host": "api.fund.eastmoney.com"
 }
-
 class FundNavQuery(BaseModel):
     code: str
     start_date: Optional[datetime.date] = None
