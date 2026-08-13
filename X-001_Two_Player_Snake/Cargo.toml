@@ -1,0 +1,8 @@
+[package]
+name = "X-001_Two_Player_Snake"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bevy = "0.14.0"
+rand = "0.8"
