@@ -105,7 +105,10 @@ pub fn spawn_arena_grid(mut commands: Commands, assets: Res<PixelAssets>) {
 }
 
 pub fn size_scaling(windows: Query<&Window>, mut q: Query<(&Size, &mut Transform)>) {
-    let field = playfield(windows.single());
+    let Ok(window) = windows.get_single() else {
+        return;
+    };
+    let field = playfield(window);
     for (sprite_size, mut transform) in q.iter_mut() {
         transform.scale = Vec3::new(
             sprite_size.width * field.tile,
@@ -116,7 +119,10 @@ pub fn size_scaling(windows: Query<&Window>, mut q: Query<(&Size, &mut Transform
 }
 
 pub fn position_translation(windows: Query<&Window>, mut q: Query<(&Position, &mut Transform)>) {
-    let field = playfield(windows.single());
+    let Ok(window) = windows.get_single() else {
+        return;
+    };
+    let field = playfield(window);
     for (pos, mut transform) in q.iter_mut() {
         transform.translation = Vec3::new(
             field.origin.x + (pos.x as f32 + 0.5) * field.tile,
@@ -130,7 +136,10 @@ pub fn update_arena_frame(
     windows: Query<&Window>,
     mut q: Query<(&ArenaFrame, &mut Sprite, &mut Transform)>,
 ) {
-    let field = playfield(windows.single());
+    let Ok(window) = windows.get_single() else {
+        return;
+    };
+    let field = playfield(window);
     for (frame, mut sprite, mut transform) in q.iter_mut() {
         sprite.custom_size = Some(Vec2::new(
             ARENA_WIDTH as f32 * field.tile + frame.padding * 2.0,

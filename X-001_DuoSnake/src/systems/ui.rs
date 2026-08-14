@@ -363,7 +363,7 @@ pub fn spawn_ui(mut commands: Commands, assets: Res<PixelAssets>) {
             })
             .with_children(|center| {
                 center.spawn(TextBundle::from_section(
-                    "SNAKE  DUO",
+                    "DUO  SNAKE",
                     TextStyle {
                         font_size: 30.0,
                         color: col(COL_INK),

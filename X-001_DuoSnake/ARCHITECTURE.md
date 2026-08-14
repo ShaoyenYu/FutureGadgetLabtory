@@ -1,55 +1,76 @@
-### 项目模块架构文档
+### 项目模块与跨平台架构文档
 
-该项目是一个基于 Bevy 引擎开发的双人贪吃蛇游戏，视觉风格为「糖果软萌像素风」（Candy Kawaii）。所有像素美术在启动时由代码生成，仓库中不含任何二进制素材。
+该项目是一个基于 Bevy 引擎（v0.14）开发的双人贪吃蛇游戏，支持 **桌面原生（Windows/macOS/Linux）、网页端（WebAssembly/WASM + WebGL/WebGPU）以及移动端（Android / iOS）** 跨平台组织与运行。视觉风格为「糖果软萌像素风」（Candy Kawaii），所有像素美术在启动时由代码程序化烘焙生成，仓库中不含任何二进制素材。
 
-#### 目录结构概览
+---
+
+#### 目录与模块架构概览
 ```text
-src/
-├── main.rs              # 项目入口：App 配置、状态管理、系统注册与调度顺序
-├── components.rs        # 定义 ECS 组件（Components）与资源、事件
-├── constants.rs         # 游戏常量与调色板（Candy Kawaii palette）
-├── pixel_art.rs         # 像素美术：字符画 + 调色板 → 运行时烘焙为 Image 纹理
-└── systems/             # 游戏逻辑系统模块
-    ├── mod.rs           # 模块导出文件，整合所有系统模块
-    ├── snake.rs         # 贪吃蛇逻辑（移动、进食、生长、死亡）与蛇身外观同步
-    ├── environment.rs   # 环境逻辑（苹果生成、炸弹陷阱生成与倒计时）
-    ├── ui.rs            # 用户界面（HUD 玩家卡、暂停/设置菜单、按钮交互）
-    └── render.rs        # 渲染布局（棋盘、边框、坐标换算、缩放、呼吸动画）
+X-001_DuoSnake/
+├── Cargo.toml                  # 项目元数据、依赖管理、多端特征与 Profile 优化
+├── .cargo/
+│   └── config.toml             # 跨目标 Rust 编译器标志（如 WASM getrandom_backend）
+├── index.html                  # 根目录 WebAssembly 挂载页面（供 Trunk 零配置启动）
+├── Trunk.toml                  # Trunk 打包器主配置
+│
+├── src/                        # 游戏核心业务逻辑（Core Engine & Systems）
+│   ├── lib.rs                  # 核心库入口：create_app() 与 run()（用于多端共享与动态库绑定）
+│   ├── main.rs                 # 桌面与 Web 二进制可执行文件启动入口
+│   ├── components.rs           # ECS 组件（Components）、全局资源（Resources）与事件（Events）
+│   ├── constants.rs            # 游戏常量与调色板（Candy Kawaii palette）
+│   ├── pixel_art.rs            # 像素美术：字符画 + 调色板 → 运行时程序化烘焙为 Image 纹理
+│   └── systems/                # ECS 业务系统分包
+│       ├── mod.rs              # 模块导出文件，整合所有系统模块
+│       ├── snake.rs            # 贪吃蛇逻辑（双人移动、进食、生长、碰撞死亡、HP扣减与复活）
+│       ├── environment.rs      # 环境逻辑（苹果随机生成、炸弹陷阱几何形状生成与倒计时销毁）
+│       ├── ui.rs               # 用户界面（顶部 HUD 玩家卡、心之容器、暂停/设置菜单、按钮交互）
+│       └── render.rs           # 渲染布局（棋盘、双层外框、坐标换算、缩放、呼吸动画与安全窗口查询）
+│
+├── platforms/                  # 跨端独立配置与打包模版（Platform Templates & Manifests）
+│   ├── web/                    # 🌐 WebAssembly
+│   │   ├── index.html          # Web 容器、响应式样式、加载动画与全屏
+│   │   ├── Trunk.toml          # Trunk 独立配置文件
+│   │   └── README.md           # 网页端发布指南
+│   ├── android/                # 🤖 Android
+│   │   ├── AndroidManifest.xml # AndroidManifest 清单文件（NativeActivity 配置）
+│   │   └── README.md           # Android NDK 编译与 cargo-apk 指南
+│   ├── ios/                    # 🍎 iOS
+│   │   ├── Info.plist          # iOS 属性配置文件
+│   │   └── README.md           # iOS 编译与 Xcode / cargo-mobile2 指南
+│   └── desktop/                # 💻 Desktop
+│       └── README.md           # 桌面端原生打包指南
+│
+├── scripts/                    # 跨平台构建与调试脚本（Automation Scripts）
+│   ├── build-web.ps1           # Web 端启动与构建脚本 (PowerShell)
+│   ├── build-web.sh            # Web 端启动与构建脚本 (Bash)
+│   ├── build-desktop.ps1       # 桌面端构建与运行脚本 (PowerShell)
+│   ├── build-desktop.sh        # 桌面端构建与运行脚本 (Bash)
+│   └── build-android.ps1       # Android 构建与调试脚本 (PowerShell)
+│
+├── dist/                       # Web 打包静态生成目录（包含 js 胶水代码与 wasm 二进制，已加 gitignore）
+├── ARCHITECTURE.md             # 架构技术规范文档
+└── README.md                   # 项目使用与快速上手说明
 ```
 
-#### 模块详细说明
+---
 
-1.  **`main.rs` (核心控制层)**
-    *   作为 Bevy 应用的配置中心，启用 `ImagePlugin::default_nearest()` 保证像素art放大后不被平滑。
-    *   定义游戏状态 (`GameState`)，注册资源 (`Resources`) 与事件 (`Events`)。
-    *   `Startup` 阶段以 `.chain()` 保证 `setup_pixel_assets` 先于所有绘制系统执行。
-    *   `Update` 分为两组：仅 `Playing` 状态运行的游戏逻辑，以及始终运行的布局 / HUD / 输入系统（暂停时窗口缩放也能正确重排）。
+#### 跨平台设计规范
 
-2.  **`components.rs` (数据定义层)**
-    *   游戏数据结构：`Position`、`Size`、`SnakeHead`、`Trap` 等。
-    *   UI 相关组件：`PlayerCard`、`PlayerLabel`、`HeartIcon`、`ButtonTheme`。
-    *   表现层组件：`Pulse`（呼吸缩放）、`ArenaFrame`（棋盘外框）。
+1. **库与可执行文件解耦（`lib.rs` + `main.rs`）**
+   - 将 Bevy 应用构建逻辑封装于 [`src/lib.rs`](file:///C:/Users/Admin/Documents/PycharmProjects/FutureGadgetLabtory/X-001_DuoSnake/src/lib.rs) 的 `create_app()` 与 `run()` 中。
+   - `Cargo.toml` 配置 `crate-type = ["rlib", "cdylib"]`，确保桌面与 Web 端直接调用二进制入口，而 Android (`cargo-apk` / `ndk-glue`) 与 iOS 能够顺利链接动态/静态库。
 
-3.  **`constants.rs` (配置层)**
-    *   网格尺寸 (`ARENA_WIDTH` / `ARENA_HEIGHT`)、HUD 高度 (`HUD_HEIGHT`)、HP 上限 (`MAX_HP`)。
-    *   Candy Kawaii 调色板以 `[u8; 4]` RGBA 存储，同一份数值同时供纹理烘焙与 UI 使用；`col()` / `col_a()` 负责转换为 `Color`。
+2. **Web (WASM) 适配规范**
+   - **Canvas 与视口自适应**：
+     - `canvas: Some("#bevy".into())`：绑定至 Web 页面中已有的 `<canvas id="bevy">` 画布。
+     - `fit_canvas_to_parent: true`：使画布自动适应父容器尺寸，支持浏览器窗口 resize 与移动端/全屏切换。
+     - `prevent_default_event_handling: true`：捕获方向键与 WASD 输入，防止按键导致浏览器页面滚动。
+   - **随机数与 WebAssembly 特性**：
+     - 在 `.cargo/config.toml` 中配置 `rustflags = ["--cfg", "getrandom_backend=\"wasm_js\""]`。
+     - 在 `Cargo.toml` 的 `target.'cfg(target_arch = "wasm32")'.dependencies` 中启用 `getrandom` 与 `uuid` 的 `js` / `wasm_js` 特性。
 
-4.  **`pixel_art.rs` (美术层)**
-    *   每个精灵以 16×16 字符画（`Art`）描述，配合调色板（`Palette`）映射字符 → 颜色，`bake()` 在启动时生成 `Image`。
-    *   同一份字符画换调色板即可复用：两条蛇共用蛇身美术，满 / 空爱心共用心形美术。
-    *   `PixelAssets` 资源持有全部纹理句柄，并提供 `head()` / `body()` / `tail()` 按玩家取图。
-    *   自带单元测试：校验每行宽度为 16、字符均在对应调色板中定义（`cargo test`）。
+3. **安全的 ECS 窗口查询 (`systems/render.rs`)**
+   - 在 Web 端画布挂载或窗口失焦切换期间，改用 `windows.get_single()` 安全模式，避免因单窗口假设 panic，保证游戏生命周期的健壮性。
 
-5.  **`systems/` (业务逻辑层)**
-    *   通过 `mod.rs` 暴露给主程序，按功能拆分为以下子模块：
-        *   **`snake.rs`**: 移动输入、运动、进食、生长、死亡与复活；`update_snake_visuals` 负责蛇头朝向旋转、蛇尾贴图与朝向（含穿墙修正），`animate_blink` 负责眨眼。
-        *   **`environment.rs`**: 苹果与炸弹陷阱的生成、陷阱倒计时与销毁。
-        *   **`ui.rs`**: 顶部 HUD（玩家卡 / 分数 / 像素爱心 / K.O. 状态）、暂停与设置菜单面板、按钮主题与交互。
-        *   **`render.rs`**: `playfield()` 计算正方形格子与居中偏移（避开 HUD），并负责棋盘、装饰小花、双层外框、坐标换算、尺寸缩放与呼吸动画。
-
-#### 视觉与布局约定
-
-*   **格子始终为正方形**：`playfield()` 取 `min(窗口宽 / 32, (窗口高 - HUD) / 18)`，避免像素art被拉伸；棋盘在 HUD 下方的区域内居中。
-*   **Z 轴层次**：外框 `-0.2 / -0.1` → 棋盘 `0.0` → 装饰 `0.05` → 陷阱 `1.2` → 食物 `1.5` → 蛇身 `2.0` → 蛇头 `2.1` → 文字 `2.5 / 3.0`。
-*   **精灵尺寸**：纹理 sprite 统一设置 `custom_size = Vec2::ONE`，实际大小完全由 `Size` × 格子边长决定，因此旋转不会产生形变。
-*   **字体**：使用 Bevy 内置默认字体（子集），文本仅使用 ASCII 字符；血量、图标等一律使用像素纹理而非 emoji。
+4. **自动化脚本与平台分离**
+   - 所有的构建逻辑通过 `scripts/` 下的跨平台脚本统一分发，配置信息归集于 `platforms/` 对应子目录，具备清晰的可维护性与扩展性。

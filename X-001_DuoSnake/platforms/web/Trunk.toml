@@ -1,0 +1,12 @@
+# Trunk configuration for Bevy Web / WASM development
+[build]
+target = "index.html"
+dist = "../../dist"
+
+[watch]
+ignore = ["../../target", "../../dist"]
+
+[serve]
+addresses = ["127.0.0.1"]
+port = 8080
+open = false
