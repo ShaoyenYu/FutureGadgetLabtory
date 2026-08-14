@@ -1,0 +1,17 @@
+[package]
+name = "soulforge_game"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+bevy = { workspace = true }
+serde = { workspace = true }
+ron = { workspace = true }
+rand = { workspace = true }
+
+soulforge_core = { workspace = true }
+soulforge_data = { workspace = true }
+soulforge_inventory = { workspace = true }
+soulforge_combat = { workspace = true }
+soulforge_meta = { workspace = true }
+soulforge_render = { workspace = true }

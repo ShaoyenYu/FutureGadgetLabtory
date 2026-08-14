@@ -1,0 +1,4 @@
+/target
+savegame.json
+**/*.rs.bk
+*.pdb

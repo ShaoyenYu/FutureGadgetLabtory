@@ -1,0 +1,10 @@
+[package]
+name = "soulforge_inventory"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+bevy = { workspace = true }
+serde = { workspace = true }
+soulforge_core = { workspace = true }
+soulforge_data = { workspace = true }

@@ -1,0 +1,53 @@
+(
+    waves: [
+        (
+            time_start: 0.0,
+            time_end: 45.0,
+            spawn_interval: 1.2,
+            enemies: [
+                (id: "corrupted_soul_basic", weight: 80),
+                (id: "corrupted_soul_explosive", weight: 20),
+            ],
+            max_concurrent: 120,
+            spawn_batch_size: 4,
+        ),
+        (
+            time_start: 45.0,
+            time_end: 100.0,
+            spawn_interval: 0.9,
+            enemies: [
+                (id: "corrupted_soul_basic", weight: 50),
+                (id: "corrupted_soul_explosive", weight: 25),
+                (id: "eye_stalker", weight: 25),
+            ],
+            max_concurrent: 180,
+            spawn_batch_size: 6,
+        ),
+        (
+            time_start: 100.0,
+            time_end: 180.0,
+            spawn_interval: 0.7,
+            enemies: [
+                (id: "corrupted_soul_basic", weight: 35),
+                (id: "corrupted_soul_explosive", weight: 25),
+                (id: "eye_stalker", weight: 20),
+                (id: "flesh_brute", weight: 20),
+            ],
+            max_concurrent: 250,
+            spawn_batch_size: 8,
+        ),
+        (
+            time_start: 180.0,
+            time_end: 360.0,
+            spawn_interval: 0.5,
+            enemies: [
+                (id: "flesh_brute", weight: 30),
+                (id: "eye_stalker", weight: 30),
+                (id: "corrupted_soul_explosive", weight: 30),
+                (id: "soul_colossus_boss", weight: 10),
+            ],
+            max_concurrent: 350,
+            spawn_batch_size: 10,
+        ),
+    ]
+)

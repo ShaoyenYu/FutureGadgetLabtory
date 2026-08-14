@@ -1,0 +1,11 @@
+[package]
+name = "soulforge_render"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+bevy = { workspace = true }
+image = { workspace = true }
+rand = { workspace = true }
+soulforge_core = { workspace = true }
+soulforge_combat = { workspace = true }

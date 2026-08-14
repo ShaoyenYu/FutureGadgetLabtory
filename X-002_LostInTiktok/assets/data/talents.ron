@@ -1,0 +1,44 @@
+(
+    talents: [
+        (
+            id: "talent_hp",
+            name: "巨人之心",
+            max_level: 10,
+            cost_base: 50,
+            cost_multiplier: 1.5,
+            stat_type: "MaxHp",
+            value_per_level: 15.0,
+            description: "每级提升主角 15 点最大生命值",
+        ),
+        (
+            id: "talent_damage",
+            name: "熔火之力",
+            max_level: 10,
+            cost_base: 60,
+            cost_multiplier: 1.6,
+            stat_type: "Damage",
+            value_per_level: 2.0,
+            description: "每级提升主角 2 点基础物理伤害",
+        ),
+        (
+            id: "talent_speed",
+            name: "轻盈步伐",
+            max_level: 5,
+            cost_base: 80,
+            cost_multiplier: 1.8,
+            stat_type: "MoveSpeed",
+            value_per_level: 8.0,
+            description: "每级提升主角 8 点移动速度",
+        ),
+        (
+            id: "talent_armor",
+            name: "黑铁装甲",
+            max_level: 5,
+            cost_base: 100,
+            cost_multiplier: 2.0,
+            stat_type: "Armor",
+            value_per_level: 2.0,
+            description: "每级提升主角 2 点护甲减伤",
+        ),
+    ]
+)

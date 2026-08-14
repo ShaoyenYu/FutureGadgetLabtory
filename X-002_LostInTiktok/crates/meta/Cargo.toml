@@ -1,0 +1,15 @@
+[package]
+name = "soulforge_meta"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+bevy = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+ron = { workspace = true }
+rand = { workspace = true }
+soulforge_core = { workspace = true }
+soulforge_data = { workspace = true }
+soulforge_inventory = { workspace = true }
+soulforge_combat = { workspace = true }
