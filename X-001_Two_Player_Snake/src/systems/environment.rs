@@ -1,9 +1,11 @@
 use crate::components::*;
 use crate::constants::*;
+use crate::pixel_art::PixelAssets;
 use bevy::prelude::*;
 use rand::prelude::random;
+use std::f32::consts::TAU;
 
-pub fn food_spawner(mut commands: Commands, q_food: Query<&Food>) {
+pub fn food_spawner(mut commands: Commands, q_food: Query<&Food>, assets: Res<PixelAssets>) {
     let current_food = q_food.iter().count();
     if current_food == 0 {
         let amount = (random::<f32>() * 7.0) as usize + 1; // 1 to 7
@@ -11,9 +13,10 @@ pub fn food_spawner(mut commands: Commands, q_food: Query<&Food>) {
             commands.spawn((
                 SpriteBundle {
                     sprite: Sprite {
-                        color: Color::srgb(1.0, 0.2, 0.4),
+                        custom_size: Some(Vec2::ONE),
                         ..default()
                     },
+                    texture: assets.apple.clone(),
                     transform: Transform::from_xyz(0.0, 0.0, 1.5),
                     ..default()
                 },
@@ -22,13 +25,18 @@ pub fn food_spawner(mut commands: Commands, q_food: Query<&Food>) {
                     x: (random::<f32>() * ARENA_WIDTH as f32) as i32,
                     y: (random::<f32>() * ARENA_HEIGHT as f32) as i32,
                 },
-                Size::square(0.65),
+                Size::square(0.88),
+                Pulse {
+                    amplitude: 0.07,
+                    speed: 3.4,
+                    phase: random::<f32>() * TAU,
+                },
             ));
         }
     }
 }
 
-pub fn trap_spawner(mut commands: Commands, traps: Query<&Trap>) {
+pub fn trap_spawner(mut commands: Commands, traps: Query<&Trap>, assets: Res<PixelAssets>) {
     if random::<f32>() < 0.3 && traps.iter().count() < 5 {
         let x = (random::<f32>() * ARENA_WIDTH as f32) as i32;
         let y = (random::<f32>() * ARENA_HEIGHT as f32) as i32;
@@ -56,14 +64,20 @@ pub fn trap_spawner(mut commands: Commands, traps: Query<&Trap>) {
                 commands.spawn((
                     SpriteBundle {
                         sprite: Sprite {
-                            color: Color::srgb(1.0, 0.5, 0.0),
+                            custom_size: Some(Vec2::ONE),
                             ..default()
                         },
+                        texture: assets.bomb.clone(),
                         transform: Transform::from_xyz(0.0, 0.0, 1.2),
                         ..default()
                     },
                     Position { x: px, y: py },
-                    Size::square(0.85),
+                    Size::square(0.96),
+                    Pulse {
+                        amplitude: 0.05,
+                        speed: 7.0,
+                        phase: random::<f32>() * TAU,
+                    },
                     TrapTile(trap_id),
                 ));
             }
@@ -74,12 +88,12 @@ pub fn trap_spawner(mut commands: Commands, traps: Query<&Trap>) {
                 text: Text::from_section(
                     duration.ceil().to_string(),
                     TextStyle {
-                        font_size: 25.0,
-                        color: Color::WHITE,
+                        font_size: 24.0,
+                        color: col(COL_BG),
                         ..default()
                     },
                 ),
-                transform: Transform::from_xyz(0.0, 0.0, 2.0),
+                transform: Transform::from_xyz(0.0, 0.0, 2.5),
                 ..default()
             },
             Position { x, y },

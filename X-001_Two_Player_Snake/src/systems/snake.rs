@@ -1,20 +1,23 @@
 use crate::components::*;
 use crate::constants::*;
+use crate::pixel_art::PixelAssets;
 use bevy::prelude::*;
 use std::collections::HashSet;
+use std::f32::consts::{FRAC_PI_2, PI};
 
-pub fn spawn_player(commands: &mut Commands, player: Player, segments: &mut Vec<Entity>) {
-    let (x, color_head, color_tail) = match player {
-        Player::One => (
-            (ARENA_WIDTH * 3 / 4) as i32,
-            Color::srgb(0.2, 1.0, 0.2),
-            Color::srgb(0.1, 0.7, 0.1),
-        ),
-        Player::Two => (
-            (ARENA_WIDTH / 4) as i32,
-            Color::srgb(0.2, 0.8, 1.0),
-            Color::srgb(0.1, 0.5, 0.8),
-        ),
+/// Z layers, kept together so the stacking order is easy to reason about.
+const Z_BODY: f32 = 2.0;
+const Z_HEAD: f32 = 2.1;
+
+pub fn spawn_player(
+    commands: &mut Commands,
+    player: Player,
+    segments: &mut Vec<Entity>,
+    assets: &PixelAssets,
+) {
+    let x = match player {
+        Player::One => (ARENA_WIDTH * 3 / 4) as i32,
+        Player::Two => (ARENA_WIDTH / 4) as i32,
     };
 
     *segments = vec![
@@ -22,10 +25,11 @@ pub fn spawn_player(commands: &mut Commands, player: Player, segments: &mut Vec<
             .spawn((
                 SpriteBundle {
                     sprite: Sprite {
-                        color: color_head,
+                        custom_size: Some(Vec2::ONE),
                         ..default()
                     },
-                    transform: Transform::from_xyz(0.0, 0.0, 1.0),
+                    texture: assets.head(player, false),
+                    transform: Transform::from_xyz(0.0, 0.0, Z_HEAD),
                     ..default()
                 },
                 SnakeHead {
@@ -37,7 +41,7 @@ pub fn spawn_player(commands: &mut Commands, player: Player, segments: &mut Vec<
                     x,
                     y: (ARENA_HEIGHT / 2) as i32,
                 },
-                Size::square(0.85),
+                Size::square(1.04),
             ))
             .id(),
         spawn_segment(
@@ -47,18 +51,22 @@ pub fn spawn_player(commands: &mut Commands, player: Player, segments: &mut Vec<
                 y: (ARENA_HEIGHT / 2 - 1) as i32,
             },
             player,
-            color_tail,
+            assets,
         ),
     ];
 }
 
-pub fn spawn_snakes(mut commands: Commands, mut segments: ResMut<SnakeSegments>) {
+pub fn spawn_snakes(
+    mut commands: Commands,
+    mut segments: ResMut<SnakeSegments>,
+    assets: Res<PixelAssets>,
+) {
     let mut p1_segs = Vec::new();
-    spawn_player(&mut commands, Player::One, &mut p1_segs);
+    spawn_player(&mut commands, Player::One, &mut p1_segs, &assets);
     segments.player1 = p1_segs;
 
     let mut p2_segs = Vec::new();
-    spawn_player(&mut commands, Player::Two, &mut p2_segs);
+    spawn_player(&mut commands, Player::Two, &mut p2_segs, &assets);
     segments.player2 = p2_segs;
 }
 
@@ -66,21 +74,136 @@ pub fn spawn_segment(
     commands: &mut Commands,
     position: Position,
     player: Player,
-    color: Color,
+    assets: &PixelAssets,
 ) -> Entity {
     commands
         .spawn((
             SpriteBundle {
-                sprite: Sprite { color, ..default() },
-                transform: Transform::from_xyz(0.0, 0.0, 1.0),
+                sprite: Sprite {
+                    custom_size: Some(Vec2::ONE),
+                    ..default()
+                },
+                texture: assets.body(player),
+                transform: Transform::from_xyz(0.0, 0.0, Z_BODY),
                 ..default()
             },
             SnakeSegment,
             player,
             position,
-            Size::square(0.7),
+            Size::square(1.0),
         ))
         .id()
+}
+
+/// Rotation for a sprite drawn facing up.
+fn facing_angle(direction: SnakeDirection) -> f32 {
+    match direction {
+        SnakeDirection::Up => 0.0,
+        SnakeDirection::Right => -FRAC_PI_2,
+        SnakeDirection::Down => PI,
+        SnakeDirection::Left => FRAC_PI_2,
+    }
+}
+
+/// Rotation that points the tail's neck at `neighbor`. Steps of more than one
+/// tile mean the snake wrapped around the arena, so the sign is flipped back.
+fn neck_angle(tail: Position, neighbor: Position) -> f32 {
+    let unwrap = |delta: i32| match delta {
+        d if d > 1 => -1,
+        d if d < -1 => 1,
+        d => d,
+    };
+    let dx = unwrap(neighbor.x - tail.x);
+    let dy = unwrap(neighbor.y - tail.y);
+
+    if dy > 0 {
+        0.0
+    } else if dy < 0 {
+        PI
+    } else if dx > 0 {
+        -FRAC_PI_2
+    } else if dx < 0 {
+        FRAC_PI_2
+    } else {
+        0.0
+    }
+}
+
+/// Keeps head rotation, tail shape and tail rotation in sync with the snake's
+/// current layout. Head *texture* is owned by [`animate_blink`].
+pub fn update_snake_visuals(
+    assets: Res<PixelAssets>,
+    segments_res: Res<SnakeSegments>,
+    heads: Query<&SnakeHead>,
+    mut q: Query<(&Position, &mut Transform, &mut Handle<Image>), With<SnakeSegment>>,
+) {
+    for player in [Player::One, Player::Two] {
+        let segments = match player {
+            Player::One => &segments_res.player1,
+            Player::Two => &segments_res.player2,
+        };
+        if segments.is_empty() {
+            continue;
+        }
+
+        let positions: Vec<Position> = segments
+            .iter()
+            .filter_map(|entity| q.get(*entity).ok().map(|(pos, _, _)| *pos))
+            .collect();
+        if positions.len() != segments.len() {
+            continue;
+        }
+
+        if let Ok(head) = heads.get(segments[0]) {
+            if let Ok((_, mut transform, _)) = q.get_mut(segments[0]) {
+                transform.rotation = Quat::from_rotation_z(facing_angle(head.direction));
+            }
+        }
+
+        let last = segments.len() - 1;
+        for (i, entity) in segments.iter().enumerate().skip(1) {
+            let Ok((_, mut transform, mut texture)) = q.get_mut(*entity) else {
+                continue;
+            };
+
+            let (wanted, rotation) = if i == last {
+                (
+                    assets.tail(player),
+                    Quat::from_rotation_z(neck_angle(positions[i], positions[i - 1])),
+                )
+            } else {
+                (assets.body(player), Quat::IDENTITY)
+            };
+
+            transform.rotation = rotation;
+            if *texture != wanted {
+                *texture = wanted;
+            }
+        }
+    }
+}
+
+/// Occasional eye blink, offset per player so they never blink in lockstep.
+pub fn animate_blink(
+    time: Res<Time>,
+    assets: Res<PixelAssets>,
+    mut q: Query<(&Player, &mut Handle<Image>), With<SnakeHead>>,
+) {
+    const BLINK_PERIOD: f32 = 3.4;
+    const BLINK_LENGTH: f32 = 0.14;
+
+    for (player, mut texture) in q.iter_mut() {
+        let offset = match player {
+            Player::One => 0.0,
+            Player::Two => BLINK_PERIOD / 2.0,
+        };
+        let blinking = (time.elapsed_seconds() + offset) % BLINK_PERIOD < BLINK_LENGTH;
+
+        let wanted = assets.head(*player, blinking);
+        if *texture != wanted {
+            *texture = wanted;
+        }
+    }
 }
 
 pub fn snake_movement_input(
@@ -259,15 +382,16 @@ pub fn snake_growth(
     mut segments: ResMut<SnakeSegments>,
     mut growth_reader: EventReader<GrowthEvent>,
     q_segments: Query<&Position>,
+    assets: Res<PixelAssets>,
 ) {
     for ev in growth_reader.read() {
-        let (player_segments, color) = match ev.0 {
-            Player::One => (&mut segments.player1, Color::srgb(0.1, 0.7, 0.1)),
-            Player::Two => (&mut segments.player2, Color::srgb(0.1, 0.5, 0.8)),
+        let player_segments = match ev.0 {
+            Player::One => &mut segments.player1,
+            Player::Two => &mut segments.player2,
         };
         if let Some(last_segment) = player_segments.last() {
             if let Ok(pos) = q_segments.get(*last_segment) {
-                player_segments.push(spawn_segment(&mut commands, *pos, ev.0, color));
+                player_segments.push(spawn_segment(&mut commands, *pos, ev.0, &assets));
             }
         }
     }
@@ -358,8 +482,8 @@ pub fn handle_player_death(
                 text: Text::from_section(
                     "3",
                     TextStyle {
-                        font_size: 40.0,
-                        color: Color::WHITE,
+                        font_size: 46.0,
+                        color: col(COL_INK),
                         ..default()
                     },
                 ),
@@ -403,7 +527,7 @@ pub fn update_respawn_timers(
             Player::Two => states.p2_respawn_timer.is_some(),
         };
         if is_respawning {
-            sprite.color.set_alpha(if blink { 0.2 } else { 1.0 });
+            sprite.color.set_alpha(if blink { 0.25 } else { 1.0 });
         } else {
             sprite.color.set_alpha(1.0);
         }
@@ -430,11 +554,13 @@ pub fn restart_game(
     mut p_states: ResMut<PlayerStates>,
     mut p_hp: ResMut<PlayerHP>,
     settings: Res<GameSettings>,
+    assets: Res<PixelAssets>,
     q_segments: Query<Entity, With<SnakeSegment>>,
     q_food: Query<Entity, With<Food>>,
     q_traps: Query<Entity, With<Trap>>,
     q_trap_texts: Query<Entity, With<TrapText>>,
     q_trap_tiles: Query<Entity, With<TrapTile>>,
+    q_respawn_texts: Query<Entity, With<RespawnText>>,
 ) {
     for _ in reader.read() {
         for e in q_segments.iter() {
@@ -452,6 +578,9 @@ pub fn restart_game(
         for e in q_trap_tiles.iter() {
             commands.entity(e).despawn();
         }
+        for e in q_respawn_texts.iter() {
+            commands.entity(e).despawn();
+        }
 
         scores.player1 = 0;
         scores.player2 = 0;
@@ -459,11 +588,11 @@ pub fn restart_game(
         p_hp.player2 = settings.initial_hp;
 
         let mut p1_segs = Vec::new();
-        spawn_player(&mut commands, Player::One, &mut p1_segs);
+        spawn_player(&mut commands, Player::One, &mut p1_segs, &assets);
         segments_res.player1 = p1_segs;
 
         let mut p2_segs = Vec::new();
-        spawn_player(&mut commands, Player::Two, &mut p2_segs);
+        spawn_player(&mut commands, Player::Two, &mut p2_segs, &assets);
         segments_res.player2 = p2_segs;
 
         p_states.p1_respawn_timer = None;

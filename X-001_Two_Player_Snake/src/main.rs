@@ -1,11 +1,14 @@
 mod components;
 mod constants;
+mod pixel_art;
 mod systems;
 
 use bevy::{prelude::*, time::common_conditions::on_timer};
 use std::time::Duration;
 
 use components::*;
+use constants::*;
+use pixel_art::setup_pixel_assets;
 use systems::environment::*;
 use systems::render::*;
 use systems::snake::*;
@@ -13,16 +16,21 @@ use systems::ui::*;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "Snake - 2 Players".into(),
-                resolution: (1920.0_f32, 1080.0_f32).into(),
-                ..default()
-            }),
-            ..default()
-        }))
+        .add_plugins(
+            DefaultPlugins
+                .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        title: "Snake Duo - 2 Players".into(),
+                        resolution: (1920.0_f32, 1080.0_f32).into(),
+                        ..default()
+                    }),
+                    ..default()
+                })
+                // Pixel art must not be smoothed when scaled up to tile size.
+                .set(ImagePlugin::default_nearest()),
+        )
         .init_state::<GameState>()
-        .insert_resource(ClearColor(Color::srgb(0.04, 0.04, 0.04)))
+        .insert_resource(ClearColor(col(COL_BG)))
         .insert_resource(SnakeSegments::default())
         .insert_resource(Scores::default())
         .insert_resource(PlayerStates::default())
@@ -33,13 +41,18 @@ fn main() {
         .add_event::<RestartGameEvent>()
         .add_systems(
             Startup,
+            // Everything below draws with the baked textures, so they go first.
             (
-                setup_camera,
-                setup_menus,
-                spawn_ui,
-                spawn_arena_grid,
-                spawn_snakes,
-            ),
+                setup_pixel_assets,
+                (
+                    setup_camera,
+                    setup_menus,
+                    spawn_ui,
+                    spawn_arena_grid,
+                    spawn_snakes,
+                ),
+            )
+                .chain(),
         )
         .add_systems(
             Update,
@@ -51,16 +64,26 @@ fn main() {
                 update_traps,
                 snake_eating,
                 snake_growth,
-                update_score_ui,
                 handle_player_death,
                 update_respawn_timers,
-                position_translation,
-                size_scaling,
                 restart_game,
+                update_snake_visuals,
+                animate_blink,
+                animate_pulse.after(size_scaling),
             )
                 .run_if(in_state(GameState::Playing)),
         )
-        .add_systems(Update, (toggle_pause, ui_interaction))
+        // Layout and HUD keep running while paused so a resize is never stale.
+        .add_systems(
+            Update,
+            (
+                (position_translation, size_scaling),
+                update_arena_frame,
+                update_hud,
+                toggle_pause,
+                ui_interaction,
+            ),
+        )
         .add_systems(OnEnter(GameState::Paused), show_pause_menu)
         .add_systems(OnExit(GameState::Paused), hide_pause_menu)
         .add_systems(OnEnter(GameState::Settings), show_settings_menu)

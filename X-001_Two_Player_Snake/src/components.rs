@@ -63,6 +63,43 @@ pub struct Scores {
 #[derive(Component)]
 pub struct ScoreText(pub Player);
 
+/// The rounded candy card each player gets in the HUD.
+#[derive(Component)]
+pub struct PlayerCard(pub Player);
+
+/// "P1  ARROW KEYS" caption inside a player card; flips to "K.O." on defeat.
+#[derive(Component)]
+pub struct PlayerLabel(pub Player);
+
+/// One HP pip. `index` is its slot in the row, counted from the left.
+#[derive(Component)]
+pub struct HeartIcon {
+    pub player: Player,
+    pub index: u32,
+}
+
+/// Colours a button cycles through as it is hovered and pressed.
+#[derive(Component)]
+pub struct ButtonTheme {
+    pub normal: Color,
+    pub hovered: Color,
+    pub pressed: Color,
+}
+
+/// Gentle breathing scale, applied on top of the grid-derived scale.
+#[derive(Component)]
+pub struct Pulse {
+    pub amplitude: f32,
+    pub speed: f32,
+    pub phase: f32,
+}
+
+/// Decorative sprite sitting behind the arena, sized to frame it.
+#[derive(Component)]
+pub struct ArenaFrame {
+    pub padding: f32,
+}
+
 #[derive(Resource)]
 pub struct PlayerHP {
     pub player1: u32,
@@ -114,9 +151,6 @@ pub struct PlayerStates {
 
 #[derive(Component)]
 pub struct RespawnText(pub Player);
-
-#[derive(Component)]
-pub struct PausedUI;
 
 #[derive(Event)]
 pub struct RestartGameEvent;
