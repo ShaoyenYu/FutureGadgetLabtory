@@ -2,6 +2,7 @@
 name = "duo-snake"
 version = "0.1.0"
 edition = "2024"
+autobins = false
 
 [lib]
 name = "duo_snake"
@@ -21,6 +22,17 @@ getrandom_v2 = { package = "getrandom", version = "0.2", features = ["js"] }
 getrandom = { version = "0.3", features = ["wasm_js"] }
 uuid = { version = "1", features = ["js"] }
 wasm-bindgen = "0.2"
+
+[package.metadata.android]
+package = "org.bevyengine.duosnake"
+apk_name = "DuoSnake"
+target_sdk_version = 34
+min_sdk_version = 24
+
+[package.metadata.android.sdk]
+target_sdk_version = 34
+min_sdk_version = 24
+
 
 [profile.dev]
 opt-level = 1
