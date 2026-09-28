@@ -1,0 +1,15 @@
+[package]
+name = "ww-core"
+description = "Werewolf rules engine: roles, boards, day/night state machine, visibility"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+serde.workspace = true
+rand.workspace = true
+rand_chacha.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
